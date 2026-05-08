@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=IM+Fell+English:ital@0;1&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --black: #080604;
+  --deep: #0e0b08;
+  --stone: #181410;
+  --gold: #c89828;
+  --gold2: #e8b840;
+  --gold3: #f8d868;
+  --crimson: #8b1818;
+  --parchment: #f0e4c0;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background-color: var(--black);
+  color: var(--parchment);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0e0b08;
+}
+::-webkit-scrollbar-thumb {
+  background: #c89828;
+  border-radius: 2px;
+}
+
+/* Font utilities */
+.font-cinzel {
+  font-family: 'Cinzel', serif;
+}
+.font-cinzel-decorative {
+  font-family: 'Cinzel Decorative', serif;
+}
+.font-fell {
+  font-family: 'IM Fell English', serif;
+}
+
+/* Tailwind custom colors */
+.text-gold {
+  color: var(--gold);
+}
+.text-gold2 {
+  color: var(--gold2);
+}
+.text-gold3 {
+  color: var(--gold3);
+}
+.text-crimson {
+  color: var(--crimson);
+}
+.text-parchment {
+  color: var(--parchment);
+}
+.border-gold {
+  border-color: var(--gold);
+}
+.border-crimson {
+  border-color: var(--crimson);
+}
+.bg-gold {
+  background-color: var(--gold);
+}
+.bg-crimson {
+  background-color: var(--crimson);
+}
+
+/* Stat tag inside chat */
+.stat-tag {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  color: var(--gold2);
+  opacity: 0.9;
+  letter-spacing: 0.05em;
+}
+
+/* Keyframes */
+@keyframes flicker {
+  0% { transform: scaleX(1) scaleY(1) rotate(-1deg); opacity: 0.95; }
+  50% { transform: scaleX(0.9) scaleY(1.05) rotate(1deg); opacity: 0.85; }
+  100% { transform: scaleX(1.05) scaleY(0.98) rotate(0deg); opacity: 1; }
+}
+
+@keyframes glow {
+  0% { opacity: 0.3; transform: scale(0.95); }
+  100% { opacity: 0.5; transform: scale(1.1); }
+}
+
+@keyframes typing-orb {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.6; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
