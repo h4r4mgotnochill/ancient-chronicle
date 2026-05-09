@@ -1,4 +1,5 @@
 'use client'
+import { saveGameProgress } from '@/lib/db'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { GameState, Era, Message, PlayerStats, ChapterEntry, DEFAULT_STATS } from '@/types'
@@ -70,6 +71,10 @@ export default function GamePage() {
       const finalState: GameState = { ...currentState, history: [...updatedHistory, assistantMessage], stats: newStats, chapters: newChapters.slice(0, 8) }
       setState(finalState)
       saveState(finalState)
+// After saveState(finalState) add:
+if (finalState.profile?.email) {
+  saveGameProgress(finalState.profile.email, finalState)
+}
     } catch (e) {
       const errMsg: Message = { role: 'assistant', content: 'The Chronicle wavers... Cannot reach the Chronicler.', timestamp: Date.now() }
       const errState = { ...currentState, history: [...updatedHistory, errMsg] }
