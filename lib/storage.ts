@@ -24,7 +24,7 @@ export function loadState(): GameState | null {
 }
 
 export function saveProfile(profile: UserProfile): void {
-  const state = loadState() ?? { profile: null, currentEra: null, history: [] }
+  const state = loadState() ?? { profile: null, currentEra: null, history: [], chapters: [], stats: { wisdom: 10, courage: 10, charisma: 10, xp: 0, level: 1 } }
   saveState({ ...state, profile })
 }
 
