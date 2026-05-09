@@ -39,6 +39,7 @@ export default function LoginForm() {
       email: email.trim().toLowerCase(),
       charName: name.trim(),
       avatar: DEFAULT_AVATAR,
+stats: { wisdom: 10, courage: 10, charisma: 10, xp: 0, level: 1 },
       createdAt: new Date().toISOString(),
     }
     saveProfile(profile)
