@@ -242,7 +242,7 @@ export const ERAS: Era[] = [
   { id:'z38', name:'Unification of Italy', year:'1861', region:'Italy', emoji:'🤝', description:'Garibaldi and his thousand red shirts unite a peninsula divided for centuries.', image:'', period:'1848–1871' },
   { id:'z39', name:'Unification of Germany', year:'1871', region:'Germany', emoji:'⚔', description:'Bismarck creates Germany through blood and iron — Europe is never the same.', image:'', period:'1864–1871' },
   { id:'z40', name:'Suez Canal Opens', year:'1869', region:'Egypt', emoji:'⚓', description:'The canal cuts the journey to India in half and makes Egypt a global prize.', image:'', period:'1869 CE' },
-  { id:'z41', name:'Scramble for Congo', year:'1885', region:'Congo', emoji:'💔', description:"Leopold's private colony kills ten million in the world's first genocide.', image:'', period:'1885–1908" },
+  { id:'z41', name:'Scramble for Congo', year:'1885', region:'Congo', emoji:'💔', description:'Leopold's private colony kills ten million in the world's first genocide.', image:'', period:'1885–1908' },
   { id:'z42', name:'Dreyfus Affair', year:'1894', region:'France', emoji:'⚖', description:'A Jewish officer is framed for treason — France tears itself apart over the truth.', image:'', period:'1894–1906' },
   { id:'z43', name:'Zulu Resistance', year:'1879', region:'South Africa', emoji:'🛡', description:'Zulu warriors defeat a British army at Isandlwana — the empire is not invincible.', image:'', period:'1879 CE' },
   { id:'z44', name:'Sepoy Mutiny', year:'1857', region:'India', emoji:'🔫', description:'Indian soldiers rise against the East India Company — and nearly win.', image:'', period:'1857–1858' },
