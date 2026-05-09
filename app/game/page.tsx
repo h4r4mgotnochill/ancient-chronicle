@@ -1,190 +1,119 @@
 'use client'
-
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
-import { UserProfile, Era, Message, GameState } from '@/types'
-import { loadState, saveState, clearState } from '@/lib/storage'
+import { GameState, Era, Message, PlayerStats, ChapterEntry, DEFAULT_STATS } from '@/types'
+import { loadState, saveState } from '@/lib/storage'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
-import TopBar from '@/components/game/TopBar'
-import EraRibbon from '@/components/game/EraRibbon'
-import ChatPane from '@/components/game/ChatPane'
-import InputZone from '@/components/game/InputZone'
+import EraSelector from '@/components/game/EraSelector'
+import PlayerSidebar from '@/components/game/PlayerSidebar'
+import GamePanel from '@/components/game/GamePanel'
 
-const ParticleCanvas = dynamic(() => import('@/components/ui/ParticleCanvas'), { ssr: false })
+type View = 'explore' | 'game'
 
 export default function GamePage() {
   const router = useRouter()
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [era, setEra] = useState<Era | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [loading, setLoading] = useState(false)
-  const stateRef = useRef<GameState>({ profile: null, currentEra: null, history: [] })
+  const [state, setState] = useState<GameState | null>(null)
+  const [view, setView] = useState<View>('explore')
+  const [isLoading, setIsLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  // Load persisted state on mount
   useEffect(() => {
-    const state = loadState()
-    if (!state?.profile) {
-      router.push('/')
-      return
-    }
-    setProfile(state.profile)
-    setEra(state.currentEra)
-    setMessages(state.history ?? [])
-    stateRef.current = state
+    const loaded = loadState()
+    if (!loaded?.profile) { router.push('/'); return }
+    if (!loaded.stats) loaded.stats = { ...DEFAULT_STATS }
+    if (!loaded.chapters) loaded.chapters = []
+    setState(loaded)
+    if (loaded.currentEra && loaded.history?.length > 0) setView('game')
+    setMounted(true)
   }, [router])
 
-  // Persist whenever state changes
-  const persist = useCallback(
-    (newMessages: Message[], newEra: Era | null) => {
-      if (!profile) return
-      const updated: GameState = {
-        profile,
-        currentEra: newEra,
-        history: newMessages,
-      }
-      stateRef.current = updated
-      saveState(updated)
-    },
-    [profile]
-  )
+  const sendToAI = useCallback(async (currentState: GameState, userMsg: string) => {
+    if (!currentState.profile || !currentState.currentEra || isLoading) return
+    setIsLoading(true)
 
-  const sendToAPI = useCallback(
-    async (userText: string, currentMessages: Message[], currentEra: Era) => {
-      const userMsg: Message = { role: 'user', content: userText, timestamp: Date.now() }
-      const updated = [...currentMessages, userMsg]
-      setMessages(updated)
-      setLoading(true)
+    const userMessage: Message = { role: 'user', content: userMsg, timestamp: Date.now() }
+    const updatedHistory = [...(currentState.history || []), userMessage]
+    setState({ ...currentState, history: updatedHistory })
 
+    try {
       const system = buildSystemPrompt(
-        currentEra.name,
-        currentEra.year,
-        currentEra.description,
-        profile?.charName ?? 'Traveller'
+        currentState.currentEra.name,
+        currentState.currentEra.year,
+        currentState.currentEra.description,
+        currentState.profile.charName
       )
+      const res = await fetch('/api/chronicle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: updatedHistory.map(m => ({ role: m.role, content: m.content })), system }),
+      })
+      const data = await res.json()
+      const reply = data.content?.[0]?.text || 'The Chronicler falls silent...'
+      const assistantMessage: Message = { role: 'assistant', content: reply, timestamp: Date.now() }
 
-      const apiMessages = updated.map((m) => ({ role: m.role, content: m.content }))
+      // Update stats
+      const newStats = { ...currentState.stats }
+      const lower = reply.toLowerCase()
+      if (lower.includes('wisdom') || lower.includes('knowledge')) newStats.wisdom = Math.min(100, newStats.wisdom + 2)
+      if (lower.includes('courage') || lower.includes('brave') || lower.includes('fight')) newStats.courage = Math.min(100, newStats.courage + 2)
+      if (lower.includes('persuade') || lower.includes('charm') || lower.includes('negotiate')) newStats.charisma = Math.min(100, newStats.charisma + 2)
+      newStats.xp = (newStats.xp || 0) + 10
+      newStats.level = Math.floor(newStats.xp / 100) + 1
 
-      try {
-        const res = await fetch('/api/chronicle', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: apiMessages, system }),
-        })
-        const data = await res.json()
-
-        if (!res.ok) throw new Error(data.error ?? 'API error')
-
-        const textBlock = (data.content as { type: string; text?: string }[]).find(
-          (b) => b.type === 'text'
-        )
-        const assistantText = textBlock?.text ?? '(The Chronicler is silent...)'
-        const assistantMsg: Message = {
-          role: 'assistant',
-          content: assistantText,
-          timestamp: Date.now(),
-        }
-
-        const final = [...updated, assistantMsg]
-        setMessages(final)
-        persist(final, currentEra)
-      } catch (err) {
-        console.error(err)
-        const errMsg: Message = {
-          role: 'assistant',
-          content: 'The Chronicle wavers... The Chronicler cannot be reached. Check your connection and try again.',
-          timestamp: Date.now(),
-        }
-        const final = [...updated, errMsg]
-        setMessages(final)
-        persist(final, currentEra)
-      } finally {
-        setLoading(false)
+      // Chapters
+      const aiCount = updatedHistory.filter(m => m.role === 'assistant').length + 1
+      const newChapters = [...(currentState.chapters || [])]
+      if (aiCount % 3 === 1 || newChapters.length === 0) {
+        newChapters.unshift({ title: '', timestamp: Date.now(), preview: reply.slice(0, 80) })
       }
-    },
-    [profile, persist]
+
+      const finalState: GameState = { ...currentState, history: [...updatedHistory, assistantMessage], stats: newStats, chapters: newChapters.slice(0, 8) }
+      setState(finalState)
+      saveState(finalState)
+    } catch (e) {
+      const errMsg: Message = { role: 'assistant', content: 'The Chronicle wavers... Cannot reach the Chronicler.', timestamp: Date.now() }
+      const errState = { ...currentState, history: [...updatedHistory, errMsg] }
+      setState(errState)
+      saveState(errState)
+    }
+    setIsLoading(false)
+  }, [isLoading])
+
+  const selectEra = useCallback(async (era: Era) => {
+    if (!state?.profile) return
+    const newState: GameState = { ...state, currentEra: era, history: [], chapters: [], stats: { ...DEFAULT_STATS } }
+    setState(newState)
+    saveState(newState)
+    setView('game')
+    await sendToAI(newState, `Begin. Introduce the world of ${era.name} (${era.year}) and ask me to choose my role.`)
+  }, [state, sendToAI])
+
+  const handleSend = useCallback((text: string) => {
+    if (state) sendToAI(state, text)
+  }, [state, sendToAI])
+
+  if (!mounted || !state?.profile) return (
+    <div className="min-h-screen bg-[#0a0806] flex items-center justify-center">
+      <div className="font-cinzel text-[#c8922a] text-sm tracking-widest animate-pulse-gold">Opening the Chronicle...</div>
+    </div>
   )
-
-  const handleSend = useCallback(
-    (text: string) => {
-      if (!era) return
-      sendToAPI(text, messages, era)
-    },
-    [era, messages, sendToAPI]
-  )
-
-  const handleEraSelect = useCallback(
-    (newEra: Era) => {
-      if (newEra.id === era?.id) return
-      setEra(newEra)
-      setMessages([])
-      persist([], newEra)
-      // Auto-trigger the opening narration
-      setTimeout(() => sendToAPI('begin', [], newEra), 100)
-    },
-    [era, persist, sendToAPI]
-  )
-
-  const handleStatus = () => {
-    if (!era) return
-    handleSend('status')
-  }
-
-  const handleMap = () => {
-    if (!era) return
-    handleSend('map')
-  }
-
-  const handleNewEra = () => {
-    const ribbon = document.querySelector('[data-era-ribbon]') as HTMLElement
-    ribbon?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  const handleLogout = () => {
-    clearState()
-    router.push('/')
-  }
-
-  if (!profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-gold/50 font-cinzel tracking-widest">
-        Loading Chronicle...
-      </div>
-    )
-  }
 
   return (
-    <div className="relative flex flex-col h-screen bg-[#080604] overflow-hidden">
-      <ParticleCanvas />
-
-      <div className="relative z-10 flex flex-col h-full">
-        <TopBar
-          profile={profile}
-          era={era}
-          onStatus={handleStatus}
-          onMap={handleMap}
-          onNewEra={handleNewEra}
-          onLogout={handleLogout}
-        />
-
-        <div data-era-ribbon>
-          <EraRibbon current={era} onSelect={handleEraSelect} />
-        </div>
-
-        {/* Era intro banner */}
-        {era && messages.length === 0 && !loading && (
-          <div className="text-center py-6 px-4 border-b border-gold/10 bg-black/40">
-            <div className="text-3xl mb-2">{era.emoji}</div>
-            <h2 className="font-cinzel-decorative text-gold text-lg">{era.name}</h2>
-            <p className="text-gold/50 font-fell text-sm italic mt-1">{era.year} · {era.region}</p>
-            <p className="text-parchment/60 font-fell text-sm mt-2 max-w-md mx-auto">{era.description}</p>
-          </div>
-        )}
-
-        <ChatPane messages={messages} loading={loading} />
-
-        <InputZone onSend={handleSend} disabled={loading || !era} />
-      </div>
+    <div className="flex h-screen bg-[#0a0806] overflow-hidden">
+      {view === 'explore' ? (
+        <EraSelector onSelect={selectEra} currentEra={state.currentEra} onBack={() => state.currentEra && setView('game')}/>
+      ) : (
+        <>
+          <PlayerSidebar profile={state.profile} stats={state.stats || DEFAULT_STATS} chapters={state.chapters || []} currentEra={state.currentEra} onExplore={() => setView('explore')}/>
+          {state.currentEra ? (
+            <GamePanel era={state.currentEra} messages={state.history || []} isLoading={isLoading} onSend={handleSend} stats={state.stats || DEFAULT_STATS} charName={state.profile.charName}/>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <button onClick={() => setView('explore')} className="font-cinzel text-sm tracking-widest uppercase px-8 py-4 border border-[rgba(200,146,42,0.3)] text-[#c8922a] hover:border-[#e8b040] hover:text-[#e8b040] transition-colors">◈ Choose an Era</button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
