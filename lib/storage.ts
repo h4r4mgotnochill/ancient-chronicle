@@ -2,6 +2,14 @@ import { GameState, UserProfile, Era, Message } from '@/types'
 
 const STORAGE_KEY = 'ancient_chronicle_v1'
 
+const DEFAULT_STATE = {
+  profile: null,
+  currentEra: null,
+  history: [],
+  chapters: [],
+  stats: { wisdom: 10, courage: 10, charisma: 10, xp: 0, level: 1 }
+}
+
 export function saveState(state: GameState): void {
   if (typeof window === 'undefined') return
   try {
@@ -24,7 +32,7 @@ export function loadState(): GameState | null {
 }
 
 export function saveProfile(profile: UserProfile): void {
-  const state = loadState() ?? { profile: null, currentEra: null, history: [], chapters: [], stats: { wisdom: 10, courage: 10, charisma: 10, xp: 0, level: 1 } }
+  const state = loadState() ?? { ...DEFAULT_STATE }
   saveState({ ...state, profile })
 }
 
@@ -35,19 +43,19 @@ export function findProfileByEmail(email: string): UserProfile | null {
 }
 
 export function saveEra(era: Era): void {
-  const state = loadState() ?? { profile: null, currentEra: null, history: [] }
-  saveState({ ...state, currentEra: era, history: [] })
+  const state = loadState() ?? { ...DEFAULT_STATE }
+  saveState({ ...state, currentEra: era, history: [], chapters: [] })
 }
 
 export function appendMessage(msg: Message): void {
-  const state = loadState() ?? { profile: null, currentEra: null, history: [] }
+  const state = loadState() ?? { ...DEFAULT_STATE }
   const history = [...(state.history ?? []), msg]
   saveState({ ...state, history })
 }
 
 export function clearHistory(): void {
-  const state = loadState() ?? { profile: null, currentEra: null, history: [] }
-  saveState({ ...state, history: [] })
+  const state = loadState() ?? { ...DEFAULT_STATE }
+  saveState({ ...state, history: [], chapters: [] })
 }
 
 export function clearState(): void {
