@@ -2,7 +2,7 @@
 import { saveGameProgress } from '@/lib/db'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { GameState, Era, Message, PlayerStats, ChapterEntry, DEFAULT_STATS } from '@/types'
+import { GameState, Era, Message, DEFAULT_STATS } from '@/types'
 import { loadState, saveState } from '@/lib/storage'
 import { buildSystemPrompt } from '@/lib/systemPrompt'
 import EraSelector from '@/components/game/EraSelector'
@@ -52,7 +52,6 @@ export default function GamePage() {
       const reply = data.content?.[0]?.text || 'The Chronicler falls silent...'
       const assistantMessage: Message = { role: 'assistant', content: reply, timestamp: Date.now() }
 
-      // Update stats
       const newStats = { ...currentState.stats }
       const lower = reply.toLowerCase()
       if (lower.includes('wisdom') || lower.includes('knowledge')) newStats.wisdom = Math.min(100, newStats.wisdom + 2)
@@ -61,26 +60,33 @@ export default function GamePage() {
       newStats.xp = (newStats.xp || 0) + 10
       newStats.level = Math.floor(newStats.xp / 100) + 1
 
-      // Chapters
       const aiCount = updatedHistory.filter(m => m.role === 'assistant').length + 1
       const newChapters = [...(currentState.chapters || [])]
       if (aiCount % 3 === 1 || newChapters.length === 0) {
         newChapters.unshift({ title: '', timestamp: Date.now(), preview: reply.slice(0, 80) })
       }
 
-      const finalState: GameState = { ...currentState, history: [...updatedHistory, assistantMessage], stats: newStats, chapters: newChapters.slice(0, 8) }
+      const finalState: GameState = {
+        ...currentState,
+        history: [...updatedHistory, assistantMessage],
+        stats: newStats,
+        chapters: newChapters.slice(0, 8)
+      }
+
       setState(finalState)
       saveState(finalState)
-// After saveState(finalState) add:
-if (finalState.profile?.email) {
-  saveGameProgress(finalState.profile.email, finalState)
-}
+
+      if (finalState.profile?.email) {
+        saveGameProgress(finalState.profile.email, finalState)
+      }
+
     } catch (e) {
       const errMsg: Message = { role: 'assistant', content: 'The Chronicle wavers... Cannot reach the Chronicler.', timestamp: Date.now() }
       const errState = { ...currentState, history: [...updatedHistory, errMsg] }
       setState(errState)
       saveState(errState)
     }
+
     setIsLoading(false)
   }, [isLoading])
 
